@@ -6,8 +6,12 @@ import { CURRENCY } from '../constants';
 
 const AdminPanel: React.FC = () => {
   const { users, transactions, updateUser, updateTransactionStatus, addTransaction } = useApp();
-  const [activeTab, setActiveTab] = useState<'users' | 'withdrawals' | 'deposits'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'withdrawals' | 'deposits' | 'all-transactions'>('users');
   const [fundAmounts, setFundAmounts] = useState<{ [userId: string]: string }>({});
+
+  // Filter states for All Transactions tab
+  const [txnTypeFilter, setTxnTypeFilter] = useState<string>('all');
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
 
   const upgradeUser = (userId: string, plan: PlanType) => {
     updateUser(userId, { plan });
@@ -70,6 +74,16 @@ const AdminPanel: React.FC = () => {
   const pendingWithdrawals = transactions.filter(t => t.type === 'withdrawal' && t.status === 'pending');
   const pendingDeposits = transactions.filter(t => t.type === 'deposit' && t.status === 'pending');
 
+  const filteredTransactions = transactions.filter(tx => {
+    const matchesType = txnTypeFilter === 'all' || tx.type === txnTypeFilter;
+    const user = users.find(u => u.id === tx.userId);
+    const matchesUser = !userSearchQuery || 
+                        user?.username.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+                        user?.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                        tx.userId.toLowerCase().includes(userSearchQuery.toLowerCase());
+    return matchesType && matchesUser;
+  });
+
   return (
     <div className="flex h-screen bg-slate-950">
       <aside className="w-64 border-r border-slate-800 p-6 flex flex-col space-y-4">
@@ -91,6 +105,12 @@ const AdminPanel: React.FC = () => {
           className={`flex items-center px-4 py-3 rounded-lg ${activeTab === 'deposits' ? 'bg-red-500/10 text-red-500' : 'hover:bg-slate-800 transition'}`}
         >
           Deposits ({pendingDeposits.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('all-transactions')}
+          className={`flex items-center px-4 py-3 rounded-lg ${activeTab === 'all-transactions' ? 'bg-red-500/10 text-red-500' : 'hover:bg-slate-800 transition'}`}
+        >
+          Global Ledger
         </button>
       </aside>
 
@@ -205,6 +225,90 @@ const AdminPanel: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'all-transactions' && (
+          <div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <h2 className="text-2xl font-bold">Global Ledger</h2>
+              <div className="flex flex-wrap gap-2">
+                <input 
+                  type="text" 
+                  placeholder="Search user or ID..." 
+                  className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-red-500"
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                />
+                <select 
+                  className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-red-500"
+                  value={txnTypeFilter}
+                  onChange={(e) => setTxnTypeFilter(e.target.value)}
+                >
+                  <option value="all">All Types</option>
+                  <option value="deposit">Deposits</option>
+                  <option value="withdrawal">Withdrawals</option>
+                  <option value="earning">Earnings</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="card-glass rounded-2xl border border-slate-800 overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-900/50 border-b border-slate-800">
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">User</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Type</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Description</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-20 text-center text-slate-500">No transactions found matching your criteria.</td>
+                    </tr>
+                  ) : filteredTransactions.map(tx => {
+                    const user = users.find(u => u.id === tx.userId);
+                    return (
+                      <tr key={tx.id} className="hover:bg-white/5 transition">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-slate-200">{user?.username || 'Unknown'}</div>
+                          <div className="text-[10px] text-slate-500">{user?.email || tx.userId}</div>
+                        </td>
+                        <td className="px-6 py-4 capitalize">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            tx.type === 'earning' ? 'text-blue-400 bg-blue-400/10' :
+                            tx.type === 'deposit' ? 'text-green-400 bg-green-400/10' : 'text-orange-400 bg-orange-400/10'
+                          }`}>
+                            {tx.type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-slate-100">
+                          {CURRENCY}{tx.amount.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            tx.status === 'approved' ? 'text-green-500 bg-green-500/10' :
+                            tx.status === 'pending' ? 'text-yellow-500 bg-yellow-500/10' : 'text-red-500 bg-red-500/10'
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-slate-400 max-w-xs truncate">
+                          {tx.description}
+                        </td>
+                        <td className="px-6 py-4 text-[10px] text-slate-500 font-mono">
+                          {new Date(tx.timestamp).toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
