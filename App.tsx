@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './store';
 
-// Components & Pages (will create these next)
+// Components & Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -56,11 +56,11 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AppProvider>
-      <HashRouter>
+      <BrowserRouter>
         <div className="min-h-screen gradient-bg">
           <AppRoutes />
         </div>
-      </HashRouter>
+      </BrowserRouter>
     </AppProvider>
   );
 };
